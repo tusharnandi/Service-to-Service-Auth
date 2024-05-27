@@ -1,0 +1,44 @@
+﻿@model ItemViewModel
+<h2>
+    Procurement Page
+</h2>
+
+<div class="card-body">
+    @using (Html.BeginForm("Index", "Procurement", FormMethod.Post))
+    {
+        <p>
+            Please click the below button to fetch the all the procurement detail of the country <strong>india</strong>
+        </p>
+        <p>
+            <button class="btn btn-primary" name="button" value="India">India</button>
+        </p>
+
+        <p>
+            Please click the below button to fetch the all the procurement detail of the country <strong>Bengladesh</strong>
+        </p>
+
+        <p>
+            <button class="btn btn-secondary" name="button" value="Bengladesh">Bengladesh</button>
+        </p>
+
+    }
+</div>
+<p>Result:</p>
+<div>
+    @if (Model?.items!=null)
+    {
+        <ul>
+        @foreach (var item in Model.items)
+        {
+                <li>@item</li>
+            
+        }
+        </ul>
+    }
+    else
+    {
+        <div>No item available to display</div>
+    }
+   
+
+</div>

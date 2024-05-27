@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>5116cdf8-fc09-4e46-94c2-2a1d1fd5fe9e</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Web" Version="2.18.2" />
+    <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="2.18.2" />
+    <PackageReference Include="Microsoft.Identity.Web.UI" Version="2.18.2" />
+  </ItemGroup>
+
+</Project>
