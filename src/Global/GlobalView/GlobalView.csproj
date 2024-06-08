@@ -13,4 +13,8 @@
     <PackageReference Include="Microsoft.Identity.Web.UI" Version="2.18.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Common\AppCommonLib.csproj" />
+  </ItemGroup>
+
 </Project>

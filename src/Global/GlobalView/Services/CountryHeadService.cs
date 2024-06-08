@@ -4,7 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Identity.Abstractions;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using static System.Formats.Asn1.AsnWriter;
+using AppCommonLib.Services;
+using System.Collections.Generic;
 
 namespace GlobalView.Services;
 
@@ -12,25 +13,34 @@ namespace GlobalView.Services;
 public class CountryHeadService : ICountryHeadService
 {
     private readonly IAuthorizationHeaderProvider _authorizationHeaderProvider;
-    private List<MyEndpoint> endpoints = new List<MyEndpoint>();
+    private readonly IConfiguration _configuration;
+    private readonly IServiceSettingOptions _indiaServiceSettings;
+    private readonly IServiceSettingOptions _bangladeshServiceSettings;
+    private readonly List<ServiceEndpoint> endpoints = new List<ServiceEndpoint>();
 
     
     
     public CountryHeadService(IAuthorizationHeaderProvider authorizationHeaderProvider, IConfiguration configuration)
     {
         _authorizationHeaderProvider = authorizationHeaderProvider;
+        _configuration= configuration;
+
+        _indiaServiceSettings = new ServiceSettingOptions();
+        _bangladeshServiceSettings = new ServiceSettingOptions();
+
+        _configuration.GetSection(ServiceSettingOptions.ServiceSettingsForCountryIndia).Bind(_indiaServiceSettings);
+        _configuration.GetSection(ServiceSettingOptions.ServiceSettingsForCountryBangladesh).Bind(_bangladeshServiceSettings);
 
         //endpoints for countries
-        endpoints.Add(new MyEndpoint("India", configuration.GetSection("DownstreamApiForCountryHeadIndia")));
-        endpoints.Add(new MyEndpoint("Bengladesh", configuration.GetSection("DownstreamApiForCountryHeadBangladesh")));
-
+        endpoints.Add(new ServiceEndpoint("India", _indiaServiceSettings));
+        endpoints.Add(new ServiceEndpoint("Bengladesh", _bangladeshServiceSettings));
     }
     public async Task<List<string>> GetProcurementDetailByCountry(string countryName)
     {
         List<string> list = null!;
         try
         {
-            var endpoint= endpoints.Find(c=>c.CountryName==countryName);
+            var endpoint= endpoints.Find(c=>c.ServiceName==countryName);
             if (endpoint!=null)
             {
                 var client= await this.HttpClientFactoryAsync(endpoint);
@@ -56,7 +66,7 @@ public class CountryHeadService : ICountryHeadService
         return list;
     }
 
-    private async Task<HttpClient> HttpClientFactoryAsync(MyEndpoint endpoint)
+    private async Task<HttpClient> HttpClientFactoryAsync(ServiceEndpoint endpoint)
     {
         var client = new HttpClient();
         string accessToken = await _authorizationHeaderProvider.CreateAuthorizationHeaderForUserAsync(endpoint.Scopes);
@@ -67,29 +77,4 @@ public class CountryHeadService : ICountryHeadService
     }
 }
 
-public class MyEndpoint
-{
-    public string BaseUrl { get; set; }
-    public string CountryName { get; set; }
-    public string[] Scopes { get; set; }
-    public MyEndpoint(string factory, IConfigurationSection configurationSection)
-    {
-        this.CountryName = factory;
-        this.BaseUrl = configurationSection.GetValue<string>("BaseUrl") ?? "";
-
-        string scope = configurationSection.GetValue<string>("Scopes") ?? "";
-        string audience = configurationSection.GetValue<string>("Audience") ?? "";
-        if (scope != "" && audience != "")
-        {
-            this.Scopes = new string[] { $"{audience}/{scope}" };
-        }
-        else
-        {
-            this.Scopes = new string[] { };
-        }
-
-    }
-
-
-}
 

@@ -17,6 +17,17 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        //Cache
+        if (!string.IsNullOrEmpty(_configuration.GetConnectionString("RedisConStr")))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = _configuration.GetConnectionString("RedisConStr");
+                options.InstanceName = "BangladeshHD";
+            });
+        }
+        //Cache
+
         /*
      'Scopes' contains space separated scopes of the web API you want to call. This can be:
       - a scope for a V2 application (for instance api://b3682cc7-8b30-4bd2-aaba-080c6bf0fd31/access_as_user)

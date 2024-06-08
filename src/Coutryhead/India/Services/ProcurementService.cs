@@ -3,27 +3,47 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Identity.Abstractions;
 using Microsoft.Identity.Web.Resource;
 using System.Text.Json;
-
+using Microsoft.Extensions.Caching.Distributed;
+using RadisCacheLib.DistrubutedCacheHelper;
+using AppCommonLib.Services;
 namespace cInApi.Services;
 
 [Authorize]
 public class ProcurementService : IProcurementService
 {
-    private List<MyEndpoint> endpoints = new List<MyEndpoint>();
+    
     private readonly IAuthorizationHeaderProvider _authorizationHeaderProvider;
     private readonly ILogger<ProcurementService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IDistributedCache _resourceCache;
 
-    public ProcurementService(IAuthorizationHeaderProvider authorizationHeaderProvider, IConfiguration configuration, ILogger<ProcurementService> logger)
+    private readonly IServiceSettingOptions _kolkataServiceSettings;
+    private readonly IServiceSettingOptions _bangaloreServiceSettings;
+    private readonly IServiceSettingOptions _hyderabadServiceSettings;
+
+    private List<ServiceEndpoint> endpoints = new List<ServiceEndpoint>();
+
+    public ProcurementService(IAuthorizationHeaderProvider authorizationHeaderProvider, IConfiguration configuration,
+        IDistributedCache resourceCache, 
+        ILogger<ProcurementService> logger)
     {
         _authorizationHeaderProvider = authorizationHeaderProvider;
         _logger = logger;
         _configuration = configuration;
+        _resourceCache = resourceCache;
 
         //endpoints for factories
-        endpoints.Add(new MyEndpoint("Bangalore",  _configuration.GetSection("DownstreamApiForIndiaBangalore")));
-        endpoints.Add(new MyEndpoint("Hyderabad", _configuration.GetSection("DownstreamApiForIndiaHyderabad")));
-        endpoints.Add(new MyEndpoint("Kolkata", _configuration.GetSection("DownstreamApiForIndiaKolkata")));
+        _kolkataServiceSettings = new ServiceSettingOptions();
+        _bangaloreServiceSettings = new ServiceSettingOptions();
+        _hyderabadServiceSettings = new ServiceSettingOptions();
+
+
+        _configuration.GetSection("DownstreamApiForIndiaKolkata").Bind(_kolkataServiceSettings);
+        _configuration.GetSection("DownstreamApiForIndiaBangalore").Bind(_bangaloreServiceSettings);
+        _configuration.GetSection("DownstreamApiForIndiaHyderabad").Bind(_hyderabadServiceSettings);
+        endpoints.Add(new ServiceEndpoint("Bangalore", _bangaloreServiceSettings));
+        endpoints.Add(new ServiceEndpoint("Hyderabad", _hyderabadServiceSettings));
+        endpoints.Add(new ServiceEndpoint("Kolkata", _kolkataServiceSettings));
 
         //Wrong Configuration Testing - it should be failed because Audience mis-match:
         //endpoints.Add(new MyEndpoint("Dhaka", _configuration.GetSection("DownstreamApiForBangladeshDhaka")));
@@ -32,25 +52,43 @@ public class ProcurementService : IProcurementService
     [RequiredScope("India.Reader")]
     public async Task<List<string>> GetProcurementsByFactory(string factory)
     {
+        string recordKey = $"cd:india:{factory}";
         List<string> list = null!;
         _logger.LogInformation($"Start GetProcurementsByFactory({factory}) scope:India.Reader");
         try
         {
-            var endpoint = endpoints.Find(c => c.FactoryName == factory);
-            if (endpoint != null)
+            var record = await _resourceCache.GetRecordAsync<List<string>>(recordKey);
+            if (record == null)
             {
-                var client = await this.HttpClientFactoryAsync(endpoint);
 
-                string content = await client.GetStringAsync("/api/Orders/list");
 
-                var result = JsonSerializer.Deserialize<string[]>(content);
-                if (result != null)
-                    list = result.ToList();
+                var endpoint = endpoints.Find(c => c.ServiceName == factory);
+                if (endpoint != null)
+                {
+                    var client = await this.HttpClientFactoryAsync(endpoint);
 
+                    string content = await client.GetStringAsync("/api/Orders/list");
+
+                    var result = JsonSerializer.Deserialize<string[]>(content);
+                    if (result != null)
+                    {
+                        list = result.ToList();
+                        TimeSpan absoluteExpireTime = TimeSpan.FromMinutes(30);
+                        TimeSpan slidingExpireTime = TimeSpan.FromMinutes(20);
+                        await _resourceCache.SetRecordAsync(recordKey, list); // Set cache
+
+                    }
+
+
+                }
+                else
+                {
+                    throw new ApplicationException($"Endpoint is not configured for the factory {factory}");
+                }
             }
             else
             {
-                throw new ApplicationException($"Endpoint is not configured for the factory {factory}");
+                list = record;
             }
 
         }
@@ -72,13 +110,13 @@ public class ProcurementService : IProcurementService
         List<string> list = new List<string>();
         foreach (var endpoint in endpoints)
         {
-            list.Add(endpoint.FactoryName);
+            list.Add(endpoint.ServiceName);
         }
 
         return await Task.FromResult(list.ToArray());
     }
 
-    private async Task<HttpClient> HttpClientFactoryAsync(MyEndpoint endpoint)
+    private async Task<HttpClient> HttpClientFactoryAsync(ServiceEndpoint endpoint)
     {
         var client = new HttpClient();
         string accessToken = await _authorizationHeaderProvider.CreateAuthorizationHeaderForUserAsync(endpoint.Scopes);
@@ -90,28 +128,3 @@ public class ProcurementService : IProcurementService
 
 }
 
-public class MyEndpoint
-{
-    public string BaseUrl { get; set; }
-    public string FactoryName { get; set; }
-    public string[] Scopes { get; set; }
-
-    public MyEndpoint(string factory, IConfigurationSection configurationSection)
-    {
-        this.FactoryName = factory;
-        this.BaseUrl = configurationSection.GetValue<string>("BaseUrl") ?? "";
-
-        string scope = configurationSection.GetValue<string>("Scopes") ?? "";
-        string audience = configurationSection.GetValue<string>("Audience") ?? "";
-        if (scope != "" && audience != "")
-        {
-            this.Scopes = new string[] { $"{audience}/{scope}" };
-        }
-        else
-        {
-            this.Scopes = new string[] { };
-        }
-
-    }
-
-}

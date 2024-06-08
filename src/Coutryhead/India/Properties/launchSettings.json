@@ -4,7 +4,7 @@
     "cInApi": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": false,
+      "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:5070",
       "environmentVariables": {

@@ -238,3 +238,4 @@ _Pvt_Extensions
 src/WebUI/ClientApp/package-lock.json
 .vs
 .azure
+**/*.Development.json

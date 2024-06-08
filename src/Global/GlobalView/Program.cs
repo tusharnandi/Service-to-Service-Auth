@@ -11,8 +11,9 @@ public class Program
             CreateHostBuilder(args).Build().Run();
             return 0;
         }
-        catch
+        catch(Exception ex)
         {
+            Console.WriteLine(ex.ToString());
             return 1;
         }
         finally

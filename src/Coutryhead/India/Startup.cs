@@ -17,6 +17,17 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        //Cache
+        if (!string.IsNullOrEmpty(_configuration.GetConnectionString("RedisConStr")))
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = _configuration.GetConnectionString("RedisConStr");
+                options.InstanceName = "indiaHD";
+            });
+        }
+        //Cache
+
         //EntraId
 
         /*
@@ -69,6 +80,19 @@ public class Startup
             app.UseSwagger();
             app.UseSwaggerUI();
         }
+
+        //cache
+        //app.Lifetime.ApplicationStarted.Register(() =>
+        //{
+        //    var currentTimeUTC = DateTime.UtcNow.ToString();
+        //    byte[] encodedCurrentTimeUTC = System.Text.Encoding.UTF8.GetBytes(currentTimeUTC);
+        //    var options = new DistributedCacheEntryOptions()
+        //        .SetSlidingExpiration(TimeSpan.FromSeconds(20));
+        //    app.Services.GetService<IDistributedCache>()
+        //                              .Set("cachedTimeUTC", encodedCurrentTimeUTC, options);
+        //});
+        //cache
+
         app.UseRouting();
 
         app.UseCors("default");
